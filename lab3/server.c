@@ -17,6 +17,9 @@ typedef struct TCPServer {
     int sockArr[CLIENT_MAX];
     int sockArrSize;
 
+    pthread_attr_t ta;
+    pthread_mutex_t mutex;
+
     FILE* file;
 
     struct sockaddr_in servAddr;
@@ -119,6 +122,11 @@ int TCPServer_Init(const char* file) {
         return 1;
 
     TCP_SERVER.sockArrSize = 0;
+    pthread_attr_init(&TCP_SERVER.ta);
+    pthread_attr_setdetachstate(&TCP_SERVER.ta, PTHREAD_CREATE_DETACHED);
+
+    pthread_mutex_init(&TCP_SERVER.mutex, 0);
+
     TCP_SERVER.servAddr.sin_family = AF_INET;
     TCP_SERVER.servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     TCP_SERVER.servAddr.sin_port = 0;
@@ -145,11 +153,12 @@ int TCPServer_Run(void* (*buff_work)(void*)) {
 
     pthread_t child;
 
+
     for(;;) {
         if ((sockClient = accept(TCP_SERVER.sockMain, 0, 0)) < 0)
             return 1;
 
-        status = pthread_create(&child, NULL, buff_work, &sockClient);
+        status = pthread_create(&child, &TCP_SERVER.ta, buff_work, &sockClient);
 
         if (status != 0)
             return 2;
